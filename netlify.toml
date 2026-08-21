@@ -1,0 +1,22 @@
+# Netlify 배포 설정
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+
+# SPA 라우팅: 모든 경로를 index.html 로 (API 제외)
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+# 정기 리포팅 스케줄은 scheduled-report 함수 내부의 `export const config.schedule`
+# ("0 * * * *", 매시 정각)에 정의되어 있습니다. 함수 내부에서 KST 기준 대상만 필터링합니다.
