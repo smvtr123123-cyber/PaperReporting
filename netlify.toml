@@ -5,7 +5,8 @@
   functions = "netlify/functions"
 
 [build.environment]
-  NODE_VERSION = "20"
+  # Node 20 은 전역 WebSocket 이 없어 supabase-js 가 함수에서 throw 하므로 22 로 상향.
+  NODE_VERSION = "22"
 
 [functions]
   node_bundler = "esbuild"
