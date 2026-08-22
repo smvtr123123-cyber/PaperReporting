@@ -21,7 +21,8 @@ const { data: users, error: uErr } = await sb.auth.admin.listUsers();
 if (uErr || !users?.users.length) throw new Error("사용자를 찾을 수 없습니다: " + uErr?.message);
 const user = users.users[0];
 const recipient = process.argv[2] || user.email!;
-console.log(`   user=${user.email}  수신=${recipient}`);
+const keyword = process.argv[3] || "large language models";
+console.log(`   user=${user.email}  수신=${recipient}  키워드=${keyword}`);
 
 console.log("2) 테스트 리포팅 설정 생성…");
 const { data: cfg, error: cErr } = await sb
@@ -29,7 +30,7 @@ const { data: cfg, error: cErr } = await sb
   .insert({
     user_id: user.id,
     name: "E2E 테스트",
-    keywords: ["large language models"],
+    keywords: [keyword],
     frequency: "daily",
     run_hour: 9,
     recipients: [recipient],
