@@ -46,22 +46,76 @@ export default function Dashboard() {
     load();
   };
 
+  // 특정 설정의 가장 최근 발송 이력 id 를 가져온다(새 결과 감지용).
+  const latestReportId = async (configId: string): Promise<string | null> => {
+    const { data } = await supabase
+      .from("sent_reports")
+      .select("id")
+      .eq("config_id", configId)
+      .order("ran_at", { ascending: false })
+      .limit(1);
+    return data?.[0]?.id ?? null;
+  };
+
   const runNow = async (c: ReportConfig) => {
     setRunningId(c.id);
     setToast(null);
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
-      const res = await fetch("/api/run-report", {
+
+      // 트리거 전 마지막 이력 id (이후 새 행이 생기면 그게 이번 실행 결과)
+      const beforeId = await latestReportId(c.id);
+
+      // 백그라운드 함수 호출 → 즉시 202 반환(본문 작업은 서버에서 최대 15분 진행)
+      const res = await fetch("/api/run-report-background", {
         method: "POST",
         headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ configId: c.id }),
       });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "실행 실패");
-      if (json.status === "success") setToast(`발송 완료: ${json.paperCount}건`);
-      else if (json.status === "skipped") setToast(`발송 생략: ${json.error ?? "신규 논문 없음"}`);
-      else setToast(`실패: ${json.error}`);
+      if (!res.ok && res.status !== 202) {
+        // 백그라운드 함수는 보통 202. 그 외 4xx/5xx 는 트리거 자체 실패.
+        let msg = "발송 요청 실패";
+        try {
+          const j = await res.json();
+          msg = j.error || msg;
+        } catch {
+          /* 본문 없음 */
+        }
+        throw new Error(msg);
+      }
+
+      setToast("발송을 시작했습니다. 결과를 확인하는 중… (논문 수에 따라 최대 1~2분)");
+
+      // sent_reports 에 새 행이 나타날 때까지 폴링 (최대 약 3분)
+      const started = Date.now();
+      const TIMEOUT_MS = 180_000;
+      const INTERVAL_MS = 4_000;
+      let result: SentReport | null = null;
+      while (Date.now() - started < TIMEOUT_MS) {
+        await new Promise((r) => setTimeout(r, INTERVAL_MS));
+        const { data: rows } = await supabase
+          .from("sent_reports")
+          .select("*")
+          .eq("config_id", c.id)
+          .order("ran_at", { ascending: false })
+          .limit(1);
+        const row = (rows?.[0] as SentReport | undefined) ?? null;
+        if (row && row.id !== beforeId) {
+          result = row;
+          break;
+        }
+      }
+
+      if (!result) {
+        setToast("처리에 시간이 걸리고 있습니다. 잠시 후 아래 '발송 이력'을 새로고침해 확인하세요.");
+      } else if (result.status === "success") {
+        setToast(`발송 완료: ${result.paper_count}건`);
+      } else if (result.status === "skipped") {
+        setToast(`발송 생략: ${result.error ?? "신규 논문 없음"}`);
+      } else {
+        setToast(`실패: ${result.error ?? "알 수 없는 오류"}`);
+      }
     } catch (e: any) {
       setToast(`오류: ${e.message}`);
     } finally {
