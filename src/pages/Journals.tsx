@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { parseScimago, parseScie } from "../lib/csv";
+import JournalDataBanner from "../components/JournalDataBanner";
 
 const BATCH = 500;
 
@@ -65,6 +66,7 @@ export default function Journals() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
+      <JournalDataBanner />
       <div>
         <h1 className="text-2xl font-bold text-slate-900">저널 데이터 관리</h1>
         <p className="text-sm text-slate-500 mt-1">

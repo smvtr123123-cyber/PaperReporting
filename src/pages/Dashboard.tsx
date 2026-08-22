@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase, type ReportConfig, type SentReport } from "../lib/supabase";
+import JournalDataBanner from "../components/JournalDataBanner";
 
 const DOW = ["일", "월", "화", "수", "목", "금", "토"];
 
@@ -73,6 +74,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-8">
+      <JournalDataBanner />
       {toast && (
         <div className="bg-brand-50 border border-brand-100 text-brand-700 rounded-lg px-4 py-3 text-sm">
           {toast}
