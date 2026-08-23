@@ -44,10 +44,15 @@ export default async () => {
     return new Response("config query failed", { status: 500 });
   }
 
-  const cutoff = Date.now() - 50 * 60 * 1000; // 50분 내 재실행 방지
+  // 중복 방지: "이번 정시 슬롯(현재 시각의 정각) 이후에 이미 실행됐는지"로 판단한다.
+  // rolling 50분 창을 쓰면, 정기 실행 직전(50분 내)에 한 수동 테스트 발송이
+  // 정기 발송을 막아버린다(last_run_at 갱신 때문). 슬롯 기준이면 이전 시각의
+  // 수동 발송은 정기 실행을 막지 않고, 같은 시각의 중복 크론만 걸러진다.
+  // (KST 오프셋은 정수 시간이라 UTC 정시 경계와 일치한다.)
+  const slotStart = Math.floor(Date.now() / 3_600_000) * 3_600_000;
   const due = (data ?? []).filter((c: any) => {
     if (!isDue(c as ReportConfig, t)) return false;
-    if (c.last_run_at && new Date(c.last_run_at).getTime() > cutoff) return false;
+    if (c.last_run_at && new Date(c.last_run_at).getTime() >= slotStart) return false;
     return true;
   });
 
