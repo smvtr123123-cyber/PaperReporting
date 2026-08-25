@@ -48,14 +48,16 @@ function sanitizeTerm(raw: string): string {
 }
 
 // AND 그룹 + OR 그룹을 하나의 boolean 검색식으로 조합한다.
-//   (A AND B AND C) AND (X OR Y OR Z)
+// 두 그룹은 독립적으로 처리하고 합집합(OR)으로 묶는다:
+//   (A AND B AND C) OR (X OR Y OR Z)
+// → AND그룹(모두 포함) 논문이 없어도 OR그룹(하나라도 포함) 논문은 리포팅된다.
 // 한쪽만 있으면 그 그룹만 사용한다.
 export function buildSearchQuery(andKeywords: string[], orKeywords: string[]): string {
   const ands = (andKeywords ?? []).map(sanitizeTerm).filter(Boolean);
   const ors = (orKeywords ?? []).map(sanitizeTerm).filter(Boolean);
   const andPart = ands.join(" AND ");
   const orPart = ors.length ? `(${ors.join(" OR ")})` : "";
-  if (andPart && orPart) return `(${andPart}) AND ${orPart}`;
+  if (andPart && orPart) return `(${andPart}) OR ${orPart}`;
   return andPart || orPart;
 }
 
