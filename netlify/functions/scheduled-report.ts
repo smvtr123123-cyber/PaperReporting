@@ -35,7 +35,7 @@ export default async () => {
   const { data, error } = await supabase
     .from("report_configs")
     .select(
-      "id,user_id,name,keywords,frequency,run_hour,day_of_week,day_of_month,recipients,only_scie,min_quartile,lookback_days,max_results,last_run_at"
+      "id,user_id,name,keywords,or_keywords,frequency,run_hour,day_of_week,day_of_month,recipients,only_scie,min_quartile,lookback_days,max_results,last_run_at"
     )
     .eq("active", true);
 

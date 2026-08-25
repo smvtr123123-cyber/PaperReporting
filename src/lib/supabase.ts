@@ -23,7 +23,8 @@ export interface ReportConfig {
   id: string;
   user_id: string;
   name: string;
-  keywords: string[];
+  keywords: string[];       // AND 키워드 (모두 포함)
+  or_keywords: string[];    // OR 키워드 (하나라도 포함)
   frequency: "daily" | "weekly" | "monthly";
   run_hour: number;
   day_of_week: number | null;
@@ -56,7 +57,8 @@ export interface ReportItem {
 }
 
 export interface ReportMeta {
-  keywords?: string[];
+  keywords?: string[];     // AND 키워드
+  orKeywords?: string[];   // OR 키워드
   configName?: string;
   items?: ReportItem[];
 }

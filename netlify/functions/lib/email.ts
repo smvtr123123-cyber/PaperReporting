@@ -19,8 +19,9 @@ export interface ReportItem {
 
 export interface ReportMeta {
   configName: string;
-  keywords: string[];
-  generatedAt: string; // KST 표기 문자열
+  andKeywords: string[]; // 모두 포함(AND)
+  orKeywords: string[];  // 하나라도 포함(OR)
+  generatedAt: string;   // KST 표기 문자열
 }
 
 function esc(s: string): string {
@@ -90,7 +91,15 @@ function renderItem(item: ReportItem, index: number): string {
 }
 
 export function renderReportHtml(meta: ReportMeta, items: ReportItem[]): string {
-  const tags = meta.keywords.map((k) => `#${esc(k)}`).join(" ");
+  const andTags = (meta.andKeywords ?? []).map((k) => `#${esc(k)}`).join(" ");
+  const orTags = (meta.orKeywords ?? []).map((k) => `#${esc(k)}`).join(" ");
+  const tagRows =
+    (andTags
+      ? `<div style="font-size:14px;opacity:.9;"><span style="opacity:.7;">모두 포함</span> ${andTags}</div>`
+      : "") +
+    (orTags
+      ? `<div style="font-size:14px;opacity:.9;margin-top:2px;"><span style="opacity:.7;">하나 이상</span> ${orTags}</div>`
+      : "");
   const body = items.length
     ? items.map(renderItem).join("")
     : `<div style="text-align:center;color:#64748b;padding:40px 0;">이번 주기에 조건에 맞는 신규 논문이 없습니다.</div>`;
@@ -102,8 +111,8 @@ export function renderReportHtml(meta: ReportMeta, items: ReportItem[]): string 
     <div style="background:linear-gradient(135deg,#1d4ed8,#2563eb);border-radius:16px;padding:28px;color:#ffffff;margin-bottom:20px;">
       <div style="font-size:13px;opacity:.85;margin-bottom:6px;">논문 리포팅 · ${esc(meta.configName)}</div>
       <div style="font-size:22px;font-weight:800;margin-bottom:8px;">SCI/SCIE 논문 리포트</div>
-      <div style="font-size:14px;opacity:.9;">${tags}</div>
-      <div style="font-size:12px;opacity:.75;margin-top:10px;">${esc(meta.generatedAt)} 생성 · 총 ${items.length}건</div>
+      ${tagRows}
+      <div style="font-size:12px;opacity:.75;margin-top:10px;">${esc(meta.generatedAt)} 생성 · 총 ${items.length}건 · 정확도순</div>
     </div>
     ${body}
     <div style="text-align:center;font-size:12px;color:#94a3b8;padding:20px 0;">

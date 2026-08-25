@@ -12,6 +12,7 @@ type Form = Omit<ReportConfig, "id" | "user_id" | "last_run_at" | "created_at">;
 const DEFAULT_FORM: Form = {
   name: "",
   keywords: [],
+  or_keywords: [],
   frequency: "daily",
   run_hour: 9,
   day_of_week: 1,
@@ -58,7 +59,8 @@ export default function ConfigEditor() {
   const save = async () => {
     setError(null);
     if (!form.name.trim()) return setError("리포팅 이름을 입력하세요.");
-    if (form.keywords.length === 0) return setError("키워드를 1개 이상 등록하세요.");
+    if (form.keywords.length === 0 && form.or_keywords.length === 0)
+      return setError("AND 또는 OR 키워드를 1개 이상 등록하세요.");
     if (form.recipients.length === 0) return setError("수신 이메일을 1개 이상 등록하세요.");
     const badEmail = form.recipients.find((e) => !EMAIL_RE.test(e));
     if (badEmail) return setError(`이메일 형식이 올바르지 않습니다: ${badEmail}`);
@@ -99,13 +101,29 @@ export default function ConfigEditor() {
           />
         </Field>
 
-        {/* 키워드 */}
-        <Field label="키워드 (해시태그)" hint="Enter 로 추가. 예: perovskite, solar cell, tandem">
+        {/* AND 키워드 */}
+        <Field
+          label="AND 키워드 (모두 포함)"
+          hint="여기 등록한 해시태그가 논문에 &ldquo;모두&rdquo; 포함돼야 합니다. 각 태그는 독립 처리(구문). 예: Human, Collagen, Triple helix"
+        >
           <ChipInput
             values={form.keywords}
             onChange={(v) => set("keywords", v)}
             prefix="#"
-            placeholder="키워드 입력 후 Enter"
+            placeholder="AND 키워드 입력 후 Enter"
+          />
+        </Field>
+
+        {/* OR 키워드 */}
+        <Field
+          label="OR 키워드 (하나라도 포함)"
+          hint="여기 등록한 해시태그 중 &ldquo;하나라도&rdquo; 포함되면 대상입니다. 예: Human type III collagen, COL3A1, P4H"
+        >
+          <ChipInput
+            values={form.or_keywords}
+            onChange={(v) => set("or_keywords", v)}
+            prefix="#"
+            placeholder="OR 키워드 입력 후 Enter"
           />
         </Field>
 
