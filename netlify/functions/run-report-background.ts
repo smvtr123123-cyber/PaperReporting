@@ -2,7 +2,7 @@ import { getAdminClient } from "./lib/supabaseAdmin.js";
 import { runReportForConfig, type ReportConfig } from "./lib/report.js";
 
 const CONFIG_COLS =
-  "id,user_id,name,keywords,frequency,run_hour,day_of_week,day_of_month,recipients,only_scie,min_quartile,lookback_days,max_results";
+  "id,user_id,name,keywords,or_keywords,frequency,run_hour,day_of_week,day_of_month,recipients,only_scie,min_quartile,lookback_days,max_results";
 
 // POST /api/run-report-background  { configId }  (Authorization: Bearer <supabase access token>)
 //

@@ -2,7 +2,7 @@ import { getAdminClient } from "./lib/supabaseAdmin.js";
 import { runReportForConfig, type ReportConfig } from "./lib/report.js";
 
 const CONFIG_COLS =
-  "id,user_id,name,keywords,frequency,run_hour,day_of_week,day_of_month,recipients,only_scie,min_quartile,lookback_days,max_results";
+  "id,user_id,name,keywords,or_keywords,frequency,run_hour,day_of_week,day_of_month,recipients,only_scie,min_quartile,lookback_days,max_results";
 
 // POST /api/run-report  { configId }  (Authorization: Bearer <supabase access token>)
 // 관리자 사이트에서 특정 설정을 즉시 실행(테스트 발송)할 때 사용.

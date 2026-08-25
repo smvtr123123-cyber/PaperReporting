@@ -37,9 +37,20 @@ export default function ReportDetail() {
           {report.meta?.configName ?? "리포트"} 발송 상세
         </h1>
         <div className="text-sm text-slate-500 mt-1">{ran}</div>
-        <div className="flex flex-wrap gap-1.5 mt-3">
+        <div className="flex flex-wrap gap-1.5 mt-3 items-center">
+          {(report.meta?.keywords ?? []).length > 0 && (
+            <span className="text-[10px] font-semibold text-blue-500 mr-0.5">AND</span>
+          )}
           {(report.meta?.keywords ?? []).map((k) => (
-            <span key={k} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+            <span key={`and-${k}`} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+              #{k}
+            </span>
+          ))}
+          {(report.meta?.orKeywords ?? []).length > 0 && (
+            <span className="text-[10px] font-semibold text-slate-400 ml-1 mr-0.5">OR</span>
+          )}
+          {(report.meta?.orKeywords ?? []).map((k) => (
+            <span key={`or-${k}`} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
               #{k}
             </span>
           ))}

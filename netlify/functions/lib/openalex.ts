@@ -28,17 +28,45 @@ function reconstructAbstract(inv: Record<string, number[]> | null | undefined): 
 }
 
 export interface FetchOptions {
-  keywords: string[];
+  andKeywords: string[];  // 모두 포함되어야 하는 키워드 (AND)
+  orKeywords: string[];   // 하나라도 포함되면 되는 키워드 (OR)
   lookbackDays: number;
   perPage?: number;       // 필터 전 후보 개수 (기본 100)
 }
 
+// 검색어 1개를 OpenAlex 문법에 맞게 정규화한다.
+// - 인용부호/괄호/쉼표 등 문법 충돌 문자를 제거 (쉼표는 filter 구분자라 특히 위험)
+// - 공백이 포함된 다중 단어는 구문(phrase)으로 취급하도록 큰따옴표로 감싼다
+function sanitizeTerm(raw: string): string {
+  const clean = String(raw ?? "")
+    .replace(/["()]/g, " ")
+    .replace(/,/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!clean) return "";
+  return /\s/.test(clean) ? `"${clean}"` : clean;
+}
+
+// AND 그룹 + OR 그룹을 하나의 boolean 검색식으로 조합한다.
+// 두 그룹은 독립적으로 처리하고 합집합(OR)으로 묶는다:
+//   (A AND B AND C) OR (X OR Y OR Z)
+// → AND그룹(모두 포함) 논문이 없어도 OR그룹(하나라도 포함) 논문은 리포팅된다.
+// 한쪽만 있으면 그 그룹만 사용한다.
+export function buildSearchQuery(andKeywords: string[], orKeywords: string[]): string {
+  const ands = (andKeywords ?? []).map(sanitizeTerm).filter(Boolean);
+  const ors = (orKeywords ?? []).map(sanitizeTerm).filter(Boolean);
+  const andPart = ands.join(" AND ");
+  const orPart = ors.length ? `(${ors.join(" OR ")})` : "";
+  if (andPart && orPart) return `(${andPart}) OR ${orPart}`;
+  return andPart || orPart;
+}
+
 // 키워드로 최근 논문 후보를 검색 (SCIE/지표 필터는 상위 로직에서 수행)
 export async function fetchCandidatePapers(opts: FetchOptions): Promise<RawPaper[]> {
-  const { keywords, lookbackDays } = opts;
+  const { andKeywords, orKeywords, lookbackDays } = opts;
   const perPage = Math.min(opts.perPage ?? 100, 200);
 
-  const query = keywords.map((k) => k.trim()).filter(Boolean).join(" ");
+  const query = buildSearchQuery(andKeywords, orKeywords);
   if (!query) return [];
 
   const from = new Date(Date.now() - lookbackDays * 86400_000)

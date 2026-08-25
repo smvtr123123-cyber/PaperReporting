@@ -161,9 +161,20 @@ export default function Dashboard() {
                       {c.active ? "활성" : "비활성"}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-1.5 mb-2">
+                  <div className="flex flex-wrap gap-1.5 mb-2 items-center">
+                    {c.keywords.length > 0 && (
+                      <span className="text-[10px] font-semibold text-blue-500 mr-0.5">AND</span>
+                    )}
                     {c.keywords.map((k) => (
-                      <span key={k} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                      <span key={`and-${k}`} className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-full">
+                        #{k}
+                      </span>
+                    ))}
+                    {(c.or_keywords ?? []).length > 0 && (
+                      <span className="text-[10px] font-semibold text-slate-400 ml-1 mr-0.5">OR</span>
+                    )}
+                    {(c.or_keywords ?? []).map((k) => (
+                      <span key={`or-${k}`} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
                         #{k}
                       </span>
                     ))}

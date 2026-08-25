@@ -11,7 +11,8 @@ create table if not exists public.report_configs (
   user_id       uuid not null references auth.users (id) on delete cascade,
   name          text not null,
   -- 해시태그 키워드 (# 제외한 순수 키워드 배열)
-  keywords      text[] not null default '{}',
+  keywords      text[] not null default '{}',   -- AND 그룹: 모두 포함되어야 함
+  or_keywords   text[] not null default '{}',   -- OR 그룹: 하나라도 포함되면 됨
   -- 주기: daily | weekly | monthly
   frequency     text not null default 'daily'
                   check (frequency in ('daily', 'weekly', 'monthly')),
@@ -33,6 +34,10 @@ create table if not exists public.report_configs (
 
 create index if not exists idx_report_configs_user on public.report_configs (user_id);
 create index if not exists idx_report_configs_active on public.report_configs (active) where active;
+
+-- 마이그레이션: 기존 테이블에 OR 키워드 컬럼 추가 (신규 생성 시엔 위 정의로 이미 존재)
+alter table public.report_configs
+  add column if not exists or_keywords text[] not null default '{}';
 
 -- ─────────────────────────────────────────────────────────────
 -- 2. 저널 메타/지표 (SCI·SCIE 판별 + 영향력 지표)

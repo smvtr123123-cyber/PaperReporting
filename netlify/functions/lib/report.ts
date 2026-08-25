@@ -8,7 +8,8 @@ export interface ReportConfig {
   id: string;
   user_id: string;
   name: string;
-  keywords: string[];
+  keywords: string[];       // AND 키워드 (모두 포함)
+  or_keywords: string[];    // OR 키워드 (하나라도 포함)
   frequency: string;
   run_hour: number;
   day_of_week: number | null;
@@ -28,6 +29,21 @@ export interface RunResult {
 
 const KST = "ko-KR";
 
+// 텍스트(제목+초록)에 등록 키워드가 몇 개나 포함되는지 센다(대소문자 무시).
+// 다중 단어 키워드는 구(phrase) 그대로 포함 여부를 본다. 정확도 정렬의 점수.
+function countKeywordMatches(text: string, keywords: string[]): number {
+  const hay = (text || "").toLowerCase();
+  let n = 0;
+  const seen = new Set<string>();
+  for (const kw of keywords) {
+    const needle = String(kw ?? "").toLowerCase().trim();
+    if (!needle || seen.has(needle)) continue;
+    seen.add(needle);
+    if (hay.includes(needle)) n++;
+  }
+  return n;
+}
+
 function nowKstString(): string {
   return new Intl.DateTimeFormat(KST, {
     timeZone: "Asia/Seoul",
@@ -45,9 +61,10 @@ export async function runReportForConfig(config: ReportConfig): Promise<RunResul
       return await finish(config, "skipped", 0, "수신 이메일이 없습니다.");
     }
 
-    // 1. OpenAlex 후보 논문 검색
+    // 1. OpenAlex 후보 논문 검색 (AND / OR 그룹 독립 처리)
     const candidates = await fetchCandidatePapers({
-      keywords: config.keywords,
+      andKeywords: config.keywords,
+      orKeywords: config.or_keywords ?? [],
       lookbackDays: config.lookback_days,
       perPage: Math.min(config.max_results * 6 + 20, 200),
     });
@@ -75,8 +92,21 @@ export async function runReportForConfig(config: ReportConfig): Promise<RunResul
     const seen = new Set((seenRows ?? []).map((r) => r.paper_key));
     enriched = enriched.filter((e) => !seen.has(e.paper.key));
 
-    // 5. 상위 N건 (인용수 → 최신순 정렬)
+    // 5. 정확도 순 정렬
+    //    등록한 키워드(AND+OR)가 제목/초록에 많이 포함될수록 상위.
+    //    동점이면 인용수 → 최신순.
+    const allKeywords = [...(config.keywords ?? []), ...(config.or_keywords ?? [])];
+    const scoreOf = (p: RawPaper) =>
+      countKeywordMatches(`${p.title} ${p.abstract}`, allKeywords);
+    const scoreCache = new Map<string, number>();
+    const score = (p: RawPaper) => {
+      let s = scoreCache.get(p.key);
+      if (s === undefined) { s = scoreOf(p); scoreCache.set(p.key, s); }
+      return s;
+    };
     enriched.sort((a, b) => {
+      const sd = score(b.paper) - score(a.paper);
+      if (sd !== 0) return sd;
       if (b.paper.citedByCount !== a.paper.citedByCount)
         return b.paper.citedByCount - a.paper.citedByCount;
       return (b.paper.publicationDate || "").localeCompare(a.paper.publicationDate || "");
@@ -116,7 +146,12 @@ export async function runReportForConfig(config: ReportConfig): Promise<RunResul
 
     // 8. 이메일 발송
     const html = renderReportHtml(
-      { configName: config.name, keywords: config.keywords, generatedAt: nowKstString() },
+      {
+        configName: config.name,
+        andKeywords: config.keywords ?? [],
+        orKeywords: config.or_keywords ?? [],
+        generatedAt: nowKstString(),
+      },
       items
     );
     await sendEmail({
@@ -159,7 +194,12 @@ async function finish(
     paper_count: paperCount,
     recipients: config.recipients,
     error: error ?? null,
-    meta: { keywords: config.keywords, configName: config.name, items: items ?? [] },
+    meta: {
+      keywords: config.keywords,
+      orKeywords: config.or_keywords ?? [],
+      configName: config.name,
+      items: items ?? [],
+    },
   });
   await supabase.from("report_configs").update({ last_run_at: new Date().toISOString() }).eq("id", config.id);
   return { status, paperCount, error };
