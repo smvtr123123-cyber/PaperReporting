@@ -61,6 +61,32 @@ export function buildSearchQuery(andKeywords: string[], orKeywords: string[]): s
   return andPart || orPart;
 }
 
+// OpenAlex 요청 (일시 과부하 503 / 레이트리밋 429 / 네트워크 오류 시 지수 백오프 재시도)
+// 2026-02-13 부터 OpenAlex 는 API 키가 필요하며, 익명 검색은 부하 시 중단된다.
+// OPENALEX_API_KEY 를 설정하면 중단 없이 안정적으로 조회된다.
+async function fetchOpenAlexJson(url: string, mailto?: string): Promise<{ results?: any[] }> {
+  const delays = [0, 1500, 4000, 8000]; // 최초 1회 + 최대 3회 재시도
+  let lastErr = "";
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    if (delays[attempt]) await new Promise((r) => setTimeout(r, delays[attempt]));
+    let res: Response;
+    try {
+      res = await fetch(url, { headers: { "User-Agent": `paper-reporting/${mailto ?? "anon"}` } });
+    } catch (e: any) {
+      lastErr = `네트워크 오류: ${e?.message ?? e}`;
+      continue;
+    }
+    if (res.ok) return (await res.json()) as { results?: any[] };
+    // 503(과부하)·429(레이트리밋)·5xx 는 재시도, 4xx 는 즉시 실패
+    if (res.status === 503 || res.status === 429 || res.status >= 500) {
+      lastErr = `OpenAlex ${res.status}: ${(await res.text()).slice(0, 200)}`;
+      continue;
+    }
+    throw new Error(`OpenAlex 요청 실패: ${res.status} ${await res.text()}`);
+  }
+  throw new Error(`OpenAlex 요청 실패(재시도 후): ${lastErr}`);
+}
+
 // 키워드로 최근 논문 후보를 검색 (SCIE/지표 필터는 상위 로직에서 수행)
 export async function fetchCandidatePapers(opts: FetchOptions): Promise<RawPaper[]> {
   const { andKeywords, orKeywords, lookbackDays } = opts;
@@ -84,17 +110,13 @@ export async function fetchCandidatePapers(opts: FetchOptions): Promise<RawPaper
   url.searchParams.set("filter", filters);
   url.searchParams.set("per-page", String(perPage));
   url.searchParams.set("sort", "relevance_score:desc");
-  // polite pool
+  // API 키(권장): 익명 검색 중단(503)을 방지. 없으면 mailto polite pool 로 최선 노력.
+  const apiKey = process.env.OPENALEX_API_KEY;
+  if (apiKey) url.searchParams.set("api_key", apiKey);
   const mailto = process.env.OPENALEX_MAILTO;
   if (mailto) url.searchParams.set("mailto", mailto);
 
-  const res = await fetch(url.toString(), {
-    headers: { "User-Agent": `paper-reporting/${mailto ?? "anon"}` },
-  });
-  if (!res.ok) {
-    throw new Error(`OpenAlex 요청 실패: ${res.status} ${await res.text()}`);
-  }
-  const data = (await res.json()) as { results?: any[] };
+  const data = await fetchOpenAlexJson(url.toString(), mailto);
   const results = data.results ?? [];
 
   return results.map((w): RawPaper => {
